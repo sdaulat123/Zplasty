@@ -7,16 +7,10 @@ const overlayLabels: Record<OverlayKey, string> = {
   angles: 'Angles',
   originalAxis: 'Original axis',
   finalAxis: 'Final axis',
-  gain: 'Length gain',
-  flapDisplacement: 'Flap displacement',
-  closureVectors: 'Closure vectors',
-  tensionVectors: 'Tension vectors',
+  gain: 'Length change',
+  exchangeGuides: 'Tip correspondence',
   grid: 'Grid scale',
-  surfaceNormal: 'Surface normal',
-  edgeCorrespondence: 'Edge correspondence',
-  sutures: 'Closure points',
-  orientation: 'Orientation labels',
-  heatmap: 'Strain heatmap',
+  heatmap: 'Illustrative color field',
 }
 
 export function LayerControls() {

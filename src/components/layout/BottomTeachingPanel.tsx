@@ -1,53 +1,92 @@
+import { ArrowRight, BookOpen, MoveHorizontal, Triangle } from 'lucide-react'
 import type { ZPlastyGeometryResult } from '../../types/geometry'
 import { phases } from '../../animation/phaseDefinitions'
-import { presets } from '../../data/presets'
+import { computeZPlastyGeometry, defaultParameters } from '../../geometry/zPlastyGeometry'
 import { teachingCards } from '../../data/educationalContent'
 import { useSimulationStore } from '../../store/simulationStore'
-import { formatPercent } from '../../geometry/measurements'
+
+const referenceAngles = [30, 45, 60, 75, 90]
 
 export function BottomTeachingPanel({ geometry }: { geometry: ZPlastyGeometryResult }) {
   const animation = useSimulationStore((state) => state.animation)
-  const comparisonIds = useSimulationStore((state) => state.comparisonIds)
   const setPhase = useSimulationStore((state) => state.setPhase)
+  const setParams = useSimulationStore((state) => state.setParams)
+  const setInputMode = useSimulationStore((state) => state.setInputMode)
+  const activePhase = phases.find((phase) => phase.id === animation.phase) ?? phases[0]
 
   return (
-    <section className="col-start-2 flex min-h-0 gap-4 overflow-x-auto border-t border-[#d7bd94] bg-[#fff8ea] p-4 max-lg:col-start-auto">
-      <div className="w-64 shrink-0">
-        <p className="text-sm font-semibold text-[#3d2d1a]">Step timeline</p>
-        <div className="mt-3 grid gap-1">
-          {phases.map((phase) => (
-            <button className={animation.phase === phase.id ? 'timeline-step-active' : 'timeline-step'} key={phase.id} onClick={() => setPhase(phase.id)} type="button">
-              {phase.label}
-            </button>
-          ))}
-        </div>
+    <section className="learning-panel" aria-labelledby="learn-heading">
+      <div className="learning-intro">
+        <span className="eyebrow">Learn by changing the geometry</span>
+        <h2 id="learn-heading">Why the Z changes direction</h2>
+        <p>The central tips correspond to the opposite outer endpoints (A→C and B→D). In the ideal planar construction, C–D becomes the final common limb. The diagram is geometric; it does not simulate tissue mechanics.</p>
       </div>
-      <div className="w-64 shrink-0 rounded-md border border-[#e2cba6] bg-[#fffdf6] p-4">
-        <p className="text-sm font-semibold text-[#3d2d1a]">Geometry graph</p>
-        <div className="mt-3 h-20 rounded bg-[linear-gradient(90deg,#ead7b6_1px,transparent_1px),linear-gradient(0deg,#ead7b6_1px,transparent_1px)] bg-[length:20px_20px]">
-          <div className="h-full rounded bg-gradient-to-r from-[#b55246]/20 via-[#258a84]/20 to-[#7464c8]/20" />
-        </div>
-        <p className="mt-2 text-xs text-[#6f5b3d]">Gain {formatPercent(geometry.theoreticalLengthGainPercent)} · reorientation {geometry.reorientationAngleDeg.toFixed(0)} deg</p>
-      </div>
-      <div className="flex shrink-0 gap-3">
-        {comparisonIds.map((id) => {
-          const preset = presets.find((item) => item.id === id)!
+
+      <div className="angle-comparison" aria-label="Classical symmetric angle comparison">
+        {referenceAngles.map((angle) => {
+          const result = computeZPlastyGeometry({ ...defaultParameters, upperAngleDeg: angle, lowerAngleDeg: angle })
+          const active = Math.abs(geometry.upperAngleDeg - angle) < 0.01 && geometry.calculationModel === 'classical-symmetric'
           return (
-            <div className="w-52 rounded-md border border-[#e2cba6] bg-[#fffdf6] p-4" key={id}>
-              <p className="text-sm font-semibold text-[#3d2d1a]">{preset.name}</p>
-              <p className="mt-2 text-xs leading-5 text-[#6f5b3d]">{preset.description}</p>
-            </div>
+            <button
+              aria-label={`${angle} degree reference: ${result.theoreticalLengthChangePercent.toFixed(1)} percent theoretical length change and ${result.axisLineAngleDeg.toFixed(1)} degree undirected axis-line angle`}
+              aria-pressed={active}
+              className={active ? 'angle-card active' : 'angle-card'}
+              key={angle}
+              onClick={() => {
+                setInputMode('learn')
+                const length = useSimulationStore.getState().params.centralLength
+                setParams({ upperAngleDeg: angle, lowerAngleDeg: angle, upperLimbLength: length, lowerLimbLength: length, symmetryLock: true })
+              }}
+              type="button"
+            >
+              <span>{angle}°</span>
+              <strong>{result.theoreticalLengthChangePercent.toFixed(1)}%</strong>
+              <small>exact length change</small>
+              <em>{result.axisLineAngleDeg.toFixed(1)}° line angle</em>
+              <i style={{ transform: `rotate(${result.axisLineAngleDeg}deg)` }} />
+            </button>
           )
         })}
       </div>
-      <div className="flex shrink-0 gap-3">
-        {teachingCards.map((card) => (
-          <details className="w-56 rounded-md border border-[#e2cba6] bg-[#fffdf6] p-4" key={card.title}>
-            <summary className="cursor-pointer text-sm font-semibold text-[#3d2d1a]">{card.title}</summary>
-            <p className="mt-2 text-xs leading-5 text-[#6f5b3d]">{card.body}</p>
-          </details>
-        ))}
+
+      <div className="phase-learning">
+        <div className="phase-nav" aria-label="Teaching sequence">
+          {phases.map((phase, index) => (
+            <button aria-current={animation.phase === phase.id ? 'step' : undefined} className={animation.phase === phase.id ? 'active' : ''} key={phase.id} onClick={() => setPhase(phase.id)} type="button">
+              <span>{index + 1}</span>{phase.label}
+            </button>
+          ))}
+        </div>
+        <div className="phase-explanation">
+          <BookOpen size={20} />
+          <div>
+            <h3>{activePhase.label}</h3>
+            <p>{activePhase.purpose}</p>
+            <span>{activePhase.caution}</span>
+          </div>
+        </div>
       </div>
+
+      <div className="concept-grid">
+        <Concept icon={<Triangle size={18} />} title="Planar geometry" body={teachingCards[1].body} />
+        <Concept icon={<ArrowRight size={18} />} title="Scar direction" body="The endpoint line changes orientation relative to the entered central axis. This is a theoretical planar direction, not a guaranteed healed-scar direction." />
+        <Concept icon={<MoveHorizontal size={18} />} title="Living tissue differs" body="Skin thickness, mobility, vascularity, scar, contour, technique, and healing can all prevent the mathematical construction from being reproduced." />
+      </div>
+      <p className="literature-note">
+        Geometry basis: <a href="https://doi.org/10.1016/S0007-1226(71)80034-6" rel="noreferrer" target="_blank">Furnas &amp; Fischer (1971)</a>,{' '}
+        <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2772284/" rel="noreferrer" target="_blank">Ellur &amp; Guido (2009)</a>, and the{' '}
+        <a href="https://www.jposna.org/~jposna/index.php/jposna/article/view/700/856" rel="noreferrer" target="_blank">JPOSNA geometric review</a>. External links never include entered values.
+      </p>
     </section>
+  )
+}
+
+function Concept({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <article className="concept-card">
+      <span>{icon}</span>
+      <h3>{title}</h3>
+      <p>{body}</p>
+    </article>
   )
 }

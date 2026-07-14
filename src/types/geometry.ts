@@ -3,6 +3,16 @@ export type Point2D = {
   y: number
 }
 
+export type LinearUnit = 'mm' | 'cm'
+
+export type InputMode = 'learn' | 'plan'
+
+export type GeometryIssue = {
+  code: string
+  severity: 'error' | 'notice'
+  message: string
+}
+
 export type ZPlastyParameters = {
   centralLength: number
   upperLimbLength: number
@@ -10,25 +20,21 @@ export type ZPlastyParameters = {
   upperAngleDeg: number
   lowerAngleDeg: number
   orientationDeg: number
-  tissueElasticity: number
-  tissueStiffness: number
-  scarStiffness: number
-  closureTensionScale: number
+  illustrativeFlexibility: number
+  deformationIntensity: number
   surfaceCurvature: number
-  transpositionAmount: number
   symmetryLock: boolean
-  snapMode: SnapMode
+  centerX: number
+  centerY: number
+  reverseFlaps: boolean
+  contractureAxisDeg: number
 }
-
-export type SnapMode = 'none' | 'angle5' | 'angle15' | 'equalLimbs' | 'symmetry' | 'grid'
 
 export type ZPlastyPoints = {
   centralStart: Point2D
   centralEnd: Point2D
   upperEndpoint: Point2D
   lowerEndpoint: Point2D
-  upperDestination: Point2D
-  lowerDestination: Point2D
 }
 
 export type ZPlastyGeometryResult = {
@@ -37,25 +43,25 @@ export type ZPlastyGeometryResult = {
   lowerFlap: Point2D[]
   transformedUpperFlap: Point2D[]
   transformedLowerFlap: Point2D[]
-  preoperativeAxisLength: number
-  postoperativeAxisLength: number
-  absoluteLengthGain: number
-  theoreticalLengthGain: number
-  theoreticalLengthGainPercent: number
-  reorientationAngleDeg: number
-  symmetryScore: number
+  originalAxisLength: number
+  finalEndpointSpan: number
+  theoreticalLengthChange: number
+  theoreticalLengthChangePercent: number
+  axisLineAngleDeg: number
   upperAngleDeg: number
   lowerAngleDeg: number
-  upperArea: number
-  lowerArea: number
-  upperPerimeter: number
-  lowerPerimeter: number
-  flapDisplacement: number
-  closureTensionEstimate: number
+  finalAxisStart: Point2D
+  finalAxisEnd: Point2D
+  totalConstructionSpan: number
+  finalAxisTransverseComponent: number
+  axisReferenceOffsetDeg: number
+  calculationModel: 'classical-symmetric' | 'entered-planar'
+  isValid: boolean
+  issues: GeometryIssue[]
   warnings: string[]
 }
 
-export type DragHandleId = 'centralStart' | 'centralEnd' | 'upperEndpoint' | 'lowerEndpoint'
+export type DragHandleId = 'centralStart' | 'centralEnd' | 'upperEndpoint' | 'lowerEndpoint' | 'center'
 
 export type SelectableId =
   | 'SkinSurface'
@@ -69,18 +75,7 @@ export type SelectableId =
   | 'LowerHinge'
   | 'OriginalAxis'
   | 'FinalAxis'
-  | 'ClosureVectorUpper'
-  | 'ClosureVectorLower'
-  | 'DeepTissuePlane'
   | 'GridPlane'
   | DragHandleId
 
-export type VariantKind =
-  | 'standard'
-  | 'asymmetric'
-  | 'serial'
-  | 'fourFlap'
-  | 'jumpingMan'
-  | 'doubleOpposing'
-  | 'planimetric'
-  | 'contracture'
+export type VariantKind = 'standard' | 'asymmetric'
