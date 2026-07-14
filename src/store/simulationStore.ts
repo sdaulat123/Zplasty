@@ -97,7 +97,7 @@ function mergeParameterPatch(current: ZPlastyParameters, patch: Partial<ZPlastyP
 
 export const useSimulationStore = create<SimulationStore>((set, get) => ({
   params: defaultParameters,
-  animation: { phase: 'marking', phaseProgress: 0, isPlaying: false, playbackSpeed: 1, loopMode: 'none' },
+  animation: { phase: 'marking', phaseProgress: 1, isPlaying: false, playbackSpeed: 1, loopMode: 'none' },
   selectedId: null,
   hoveredId: null,
   activePresetId: 'sym-60',
@@ -166,5 +166,5 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
       animation: key === 'reducedMotion' && enabled ? { ...state.animation, isPlaying: false } : state.animation,
     }
   }),
-  reset: () => set({ params: { ...defaultParameters }, activePresetId: 'sym-60', inputMode: 'learn', unit: 'mm', animation: { phase: 'marking', phaseProgress: 0, isPlaying: false, playbackSpeed: 1, loopMode: 'none' }, selectedId: null, hoveredId: null }),
+  reset: () => set({ params: { ...defaultParameters }, activePresetId: 'sym-60', inputMode: 'learn', unit: 'mm', animation: { phase: 'marking', phaseProgress: 1, isPlaying: false, playbackSpeed: 1, loopMode: 'none' }, selectedId: null, hoveredId: null }),
 }))

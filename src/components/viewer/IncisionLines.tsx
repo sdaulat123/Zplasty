@@ -2,6 +2,7 @@ import { Line } from '@react-three/drei'
 import type { Point2D, SelectableId, ZPlastyGeometryResult } from '../../types/geometry'
 import { useSimulationStore } from '../../store/simulationStore'
 import { conceptualSurfaceHeight, type SurfaceLayout } from '../../geometry/surfaceMath'
+import { getPhaseVisualState, stagedLineProgress } from '../../animation/phaseVisualState'
 
 type LimbId = Extract<SelectableId, 'CentralLimb' | 'UpperLateralLimb' | 'LowerLateralLimb' | 'FinalAxis'>
 
@@ -27,28 +28,34 @@ export function IncisionLines({ geometryResult, layout }: { geometryResult: ZPla
     )
   }
 
-  const finalProgress = animation.phase === 'transposition'
-    ? animation.phaseProgress
-    : ['approximation', 'closure', 'comparison'].includes(animation.phase) ? 1 : 0
-  const incisionProgress = animation.phase === 'incision' ? animation.phaseProgress : 1
-  const initialOpacity = 1 - finalProgress
-  const dashed = animation.phase === 'marking'
+  const visual = getPhaseVisualState(animation)
+  const markingOpacity = visual.marking * (1 - visual.incision * 0.72)
 
   return (
     <group>
-      {initialOpacity > 0 && (
+      {markingOpacity > 0 && (
+        <group name="DesignMarkings">
+          <NamedLine id="CentralLimb" selected={false} points={[points.centralStart, points.centralEnd]} progress={stagedLineProgress(visual.marking, 0, 3)} opacity={markingOpacity} dashed onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+          <NamedLine id="UpperLateralLimb" selected={false} points={[points.centralEnd, points.upperEndpoint]} progress={stagedLineProgress(visual.marking, 1, 3)} opacity={markingOpacity} dashed onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+          <NamedLine id="LowerLateralLimb" selected={false} points={[points.centralStart, points.lowerEndpoint]} progress={stagedLineProgress(visual.marking, 2, 3)} opacity={markingOpacity} dashed onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+        </group>
+      )}
+      {visual.incision > 0 && (
         <>
-          <NamedLine id="CentralLimb" selected={selected === 'CentralLimb'} points={[points.centralStart, points.centralEnd]} progress={incisionProgress} opacity={initialOpacity} dashed={dashed} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
-          <NamedLine id="UpperLateralLimb" selected={selected === 'UpperLateralLimb'} points={[points.centralEnd, points.upperEndpoint]} progress={incisionProgress} opacity={initialOpacity} dashed={dashed} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
-          <NamedLine id="LowerLateralLimb" selected={selected === 'LowerLateralLimb'} points={[points.centralStart, points.lowerEndpoint]} progress={incisionProgress} opacity={initialOpacity} dashed={dashed} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+          <NamedLine id="CentralLimb" selected={selected === 'CentralLimb'} points={[points.centralStart, points.centralEnd]} progress={stagedLineProgress(visual.incision, 0, 3)} opacity={1 - visual.transposition} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+          <NamedLine id="UpperLateralLimb" selected={selected === 'UpperLateralLimb'} points={[points.centralEnd, points.upperEndpoint]} progress={stagedLineProgress(visual.incision, 1, 3)} opacity={1} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+          <NamedLine id="LowerLateralLimb" selected={selected === 'LowerLateralLimb'} points={[points.centralStart, points.lowerEndpoint]} progress={stagedLineProgress(visual.incision, 2, 3)} opacity={1} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
         </>
       )}
-      {finalProgress > 0 && (
-        <>
-          <NamedLine id="UpperLateralLimb" selected={selected === 'UpperLateralLimb'} points={[points.centralEnd, points.upperEndpoint]} progress={1} opacity={finalProgress} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
-          <NamedLine id="FinalAxis" selected={selected === 'FinalAxis'} points={[points.upperEndpoint, points.lowerEndpoint]} progress={1} opacity={finalProgress} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
-          <NamedLine id="LowerLateralLimb" selected={selected === 'LowerLateralLimb'} points={[points.lowerEndpoint, points.centralStart]} progress={1} opacity={finalProgress} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
-        </>
+      {visual.approximation > 0 && (
+        <NamedLine id="FinalAxis" selected={selected === 'FinalAxis'} points={[points.upperEndpoint, points.lowerEndpoint]} progress={visual.approximation} opacity={1} onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+      )}
+      {visual.closure > 0 && (
+        <group name="FinalClosureTopology">
+          <NamedLine id="UpperLateralLimb" selected={false} points={[points.centralEnd, points.upperEndpoint]} progress={visual.closure} opacity={visual.closure} emphasis onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+          <NamedLine id="FinalAxis" selected={false} points={[points.upperEndpoint, points.lowerEndpoint]} progress={visual.closure} opacity={visual.closure} emphasis onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+          <NamedLine id="LowerLateralLimb" selected={false} points={[points.lowerEndpoint, points.centralStart]} progress={visual.closure} opacity={visual.closure} emphasis onHover={hover} onSelect={select} toScenePoint={toScenePoint} />
+        </group>
       )}
     </group>
   )
@@ -60,6 +67,7 @@ function NamedLine({
   progress,
   opacity,
   dashed,
+  emphasis,
   selected,
   onHover,
   onSelect,
@@ -70,6 +78,7 @@ function NamedLine({
   progress: number
   opacity: number
   dashed?: boolean
+  emphasis?: boolean
   selected: boolean
   onHover: (id: SelectableId | null) => void
   onSelect: (id: SelectableId) => void
@@ -93,7 +102,7 @@ function NamedLine({
         onHover(id)
       }}
     >
-      <Line color={selected ? '#fff0a3' : color} dashed={dashed} lineWidth={selected ? 8 : id === 'FinalAxis' ? 7 : 5} opacity={opacity} points={[toScenePoint(points[0]), toScenePoint(end)]} transparent />
+      <Line color={selected ? '#fff0a3' : emphasis ? '#365d58' : color} dashed={dashed} lineWidth={selected ? 8 : emphasis ? 8 : id === 'FinalAxis' ? 7 : 5} opacity={opacity} points={[toScenePoint(points[0]), toScenePoint(end)]} transparent />
     </group>
   )
 }

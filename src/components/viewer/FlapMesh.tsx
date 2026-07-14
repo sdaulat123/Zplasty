@@ -4,6 +4,7 @@ import type { Point2D, SelectableId, ZPlastyGeometryResult } from '../../types/g
 import type { SurfaceMode } from '../../types/simulation'
 import { useSimulationStore } from '../../store/simulationStore'
 import { conceptualSurfaceHeight, type SurfaceLayout } from '../../geometry/surfaceMath'
+import { getPhaseVisualState } from '../../animation/phaseVisualState'
 
 export function FlapMesh({ geometryResult, layout }: { geometryResult: ZPlastyGeometryResult; layout: SurfaceLayout }) {
   const animation = useSimulationStore((state) => state.animation)
@@ -12,18 +13,13 @@ export function FlapMesh({ geometryResult, layout }: { geometryResult: ZPlastyGe
   const select = useSimulationStore((state) => state.select)
   const params = useSimulationStore((state) => state.params)
   const surfaceMode = useSimulationStore((state) => state.surfaceMode)
-  if (animation.phase === 'native') return null
+  const visual = getPhaseVisualState(animation)
+  if (visual.marking <= 0) return null
 
-  const transpositionProgress = animation.phase === 'transposition'
-    ? animation.phaseProgress
-    : ['approximation', 'closure', 'comparison'].includes(animation.phase) ? 1 : 0
-  const initialOpacity = 0.62 * (1 - transpositionProgress)
-  const finalOpacity = 0.62 * transpositionProgress
-  const elevation = animation.phase === 'elevation'
-    ? 0.8 + animation.phaseProgress * 9.2
-    : animation.phase === 'transposition'
-      ? 10 - animation.phaseProgress * 8.8
-      : ['approximation', 'closure', 'comparison'].includes(animation.phase) ? 1.2 : 0.8
+  const enteredVisibility = Math.min(1, visual.marking * 0.35 + visual.incision * 0.25 + visual.elevation * 0.4)
+  const initialOpacity = 0.62 * enteredVisibility * (1 - visual.transposition)
+  const finalOpacity = 0.62 * visual.transposition * (1 - visual.closure * 0.45)
+  const elevation = 0.8 + visual.elevation * 9.2
 
   return (
     <group position={[0, 0, elevation]}>

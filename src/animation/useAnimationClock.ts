@@ -1,14 +1,12 @@
 import { useEffect } from 'react'
-import { phaseOrder } from './phaseDefinitions'
+import { phaseDurationSeconds, phaseOrder } from './phaseDefinitions'
 import { useSimulationStore } from '../store/simulationStore'
-
-const PHASES_PER_SECOND = 0.26
 
 export function advanceAnimation(deltaSeconds: number) {
   const state = useSimulationStore.getState()
   const { animation } = state
   if (!animation.isPlaying || state.accessibility.reducedMotion) return
-  const nextProgress = animation.phaseProgress + Math.max(0, deltaSeconds) * PHASES_PER_SECOND * animation.playbackSpeed
+  const nextProgress = animation.phaseProgress + (Math.max(0, deltaSeconds) * animation.playbackSpeed) / phaseDurationSeconds(animation.phase)
   if (nextProgress < 1) {
     state.setPhaseProgress(nextProgress)
     return

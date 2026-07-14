@@ -9,9 +9,10 @@ describe('application animation clock', () => {
   })
 
   it('advances without a mounted WebGL canvas', () => {
+    useSimulationStore.getState().setPhaseProgress(0)
     useSimulationStore.getState().setPlaying(true)
     advanceAnimation(1)
-    expect(useSimulationStore.getState().animation.phaseProgress).toBeCloseTo(0.26)
+    expect(useSimulationStore.getState().animation.phaseProgress).toBeCloseTo(1 / 2.4)
   })
 
   it('moves to the next phase and stops after the final phase', () => {

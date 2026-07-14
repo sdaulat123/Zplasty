@@ -4,6 +4,7 @@ import { useSimulationStore } from '../../store/simulationStore'
 import { add, fromAngle, midpoint, subtract } from '../../geometry/vectorMath'
 import { formatLength } from '../../geometry/measurements'
 import { fitViewBox, type ViewBox } from '../../geometry/viewBox'
+import { getPhaseVisualState, stagedLineProgress } from '../../animation/phaseVisualState'
 
 export function SimulationOverlay({ geometry }: { geometry: ZPlastyGeometryResult }) {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -18,13 +19,13 @@ export function SimulationOverlay({ geometry }: { geometry: ZPlastyGeometryResul
   const select = useSimulationStore((state) => state.select)
   const dragHandle = useSimulationStore((state) => state.dragHandle)
   const phase = animation.phase
-  const phaseAfterTransposition = ['approximation', 'closure', 'comparison'].includes(phase)
-  const finalProgress = phase === 'transposition' ? animation.phaseProgress : phaseAfterTransposition ? 1 : 0
-  const initialOpacity = phase === 'native' ? 0 : phase === 'transposition' ? 1 - finalProgress : phaseAfterTransposition ? 0 : 1
-  const finalOpacity = finalProgress
-  const showDesign = phase !== 'native'
+  const visual = getPhaseVisualState(animation)
+  const markingOpacity = visual.marking * (1 - visual.incision * 0.72)
+  const initialFlapOpacity = Math.min(1, visual.marking * 0.35 + visual.incision * 0.25 + visual.elevation * 0.4) * (1 - visual.transposition)
+  const finalFlapOpacity = visual.transposition * (1 - visual.closure * 0.45)
+  const measurementOpacity = Math.max(visual.comparison, visual.marking * (1 - visual.closure * 0.7))
+  const showDesign = visual.marking > 0.02
   const p = geometry.points
-  const incisionProgress = phase === 'incision' ? animation.phaseProgress : phase === 'native' ? 0 : 1
   const referenceHalfLength = Math.max(74, geometry.totalConstructionSpan * 0.7)
   const contracture = fromAngle(params.contractureAxisDeg, referenceHalfLength)
   const contractureStart = { x: params.centerX - contracture.x, y: params.centerY - contracture.y }
@@ -92,6 +93,8 @@ export function SimulationOverlay({ geometry }: { geometry: ZPlastyGeometryResul
         aria-describedby="plan-instructions"
         aria-label="Interactive Z-plasty planar geometry editor"
         className="plan-svg"
+        data-phase={phase}
+        data-phase-progress={animation.phaseProgress.toFixed(3)}
         onPointerLeave={finishDragging}
         onPointerMove={moveDraggingHandle}
         onPointerUp={finishDragging}
@@ -108,6 +111,9 @@ export function SimulationOverlay({ geometry }: { geometry: ZPlastyGeometryResul
           <filter id="handle-shadow" x="-80%" y="-80%" width="260%" height="260%">
             <feDropShadow dx="0" dy="1" floodColor="#442c20" floodOpacity="0.25" stdDeviation="1.5" />
           </filter>
+          <filter id="elevation-shadow" x="-35%" y="-35%" width="170%" height="180%">
+            <feDropShadow dx="0" dy={1 + visual.elevation * 4} floodColor="#4c3029" floodOpacity={0.18 + visual.elevation * 0.3} stdDeviation={1 + visual.elevation * 2.5} />
+          </filter>
         </defs>
 
         <rect className="stage-surface" height={viewBox.height - stagePadding * 2} rx="8" width={viewBox.width - stagePadding * 2} x={viewBox.x + stagePadding} y={viewBox.y + stagePadding} />
@@ -120,64 +126,96 @@ export function SimulationOverlay({ geometry }: { geometry: ZPlastyGeometryResul
           </>
         )}
 
-        {initialOpacity > 0 && (
-          <g opacity={initialOpacity}>
-            <FlapPolygon color="#e89a94" id="UpperFlap" onHover={hover} onSelect={select} points={geometry.upperFlap} selected={selectedId === 'UpperFlap'} />
-            <FlapPolygon color="#6bb7ae" id="LowerFlap" onHover={hover} onSelect={select} points={geometry.lowerFlap} selected={selectedId === 'LowerFlap'} />
+        {initialFlapOpacity > 0 && (
+          <g aria-label="Entered flap layout" data-animation-layer="entered-flaps" filter={visual.elevation > 0.02 ? 'url(#elevation-shadow)' : undefined} opacity={initialFlapOpacity}>
+            <FlapPolygon color="#e89a94" id="UpperFlap" interactive={visual.transposition < 0.5} onHover={hover} onSelect={select} points={geometry.upperFlap} selected={selectedId === 'UpperFlap'} />
+            <FlapPolygon color="#6bb7ae" id="LowerFlap" interactive={visual.transposition < 0.5} onHover={hover} onSelect={select} points={geometry.lowerFlap} selected={selectedId === 'LowerFlap'} />
           </g>
         )}
-        {finalOpacity > 0 && (
-          <g opacity={finalOpacity}>
-            <FlapPolygon color="#e89a94" id="UpperFlap" onHover={hover} onSelect={select} points={geometry.transformedUpperFlap} selected={selectedId === 'UpperFlap'} />
-            <FlapPolygon color="#6bb7ae" id="LowerFlap" onHover={hover} onSelect={select} points={geometry.transformedLowerFlap} selected={selectedId === 'LowerFlap'} />
+        {finalFlapOpacity > 0 && (
+          <g aria-label="Reciprocal final flap layout" data-animation-layer="final-flaps" opacity={finalFlapOpacity}>
+            <FlapPolygon color="#e89a94" id="UpperFlap" interactive={visual.transposition >= 0.5} onHover={hover} onSelect={select} points={geometry.transformedUpperFlap} selected={selectedId === 'UpperFlap'} />
+            <FlapPolygon color="#6bb7ae" id="LowerFlap" interactive={visual.transposition >= 0.5} onHover={hover} onSelect={select} points={geometry.transformedLowerFlap} selected={selectedId === 'LowerFlap'} />
           </g>
         )}
 
-        {phase === 'native' ? (
+        {phase === 'native' && (
           <PlanLine color="#8e2f3d" from={p.centralStart} id="CentralLimb" onHover={hover} onSelect={select} selected={selectedId === 'CentralLimb'} to={p.centralEnd} />
-        ) : initialOpacity > 0 ? (
-          <g opacity={initialOpacity}>
-            <PlanLine color="#8e2f3d" from={p.centralStart} id="CentralLimb" onHover={hover} onSelect={select} selected={selectedId === 'CentralLimb'} to={lerpPoint(p.centralStart, p.centralEnd, incisionProgress)} />
-            <PlanLine color="#c94f4f" from={p.centralEnd} id="UpperLateralLimb" onHover={hover} onSelect={select} selected={selectedId === 'UpperLateralLimb'} to={lerpPoint(p.centralEnd, p.upperEndpoint, incisionProgress)} />
-            <PlanLine color="#c94f4f" from={p.centralStart} id="LowerLateralLimb" onHover={hover} onSelect={select} selected={selectedId === 'LowerLateralLimb'} to={lerpPoint(p.centralStart, p.lowerEndpoint, incisionProgress)} />
-          </g>
-        ) : null}
+        )}
 
-        {finalOpacity > 0 && (
-          <g opacity={finalOpacity}>
-            <PlanLine color="#c94f4f" from={p.centralEnd} id="UpperLateralLimb" onHover={hover} onSelect={select} selected={selectedId === 'UpperLateralLimb'} to={p.upperEndpoint} />
-            {overlays.finalAxis && <line className="final-axis" x1={geometry.finalAxisStart.x} x2={geometry.finalAxisEnd.x} y1={geometry.finalAxisStart.y} y2={geometry.finalAxisEnd.y} />}
-            <PlanLine color="#c94f4f" from={p.lowerEndpoint} id="LowerLateralLimb" onHover={hover} onSelect={select} selected={selectedId === 'LowerLateralLimb'} to={p.centralStart} />
+        {markingOpacity > 0 && (
+          <g aria-label="Design markings" data-animation-layer="markings" opacity={markingOpacity}>
+            <PlanLine color="#8e2f3d" decorative dashed from={p.centralStart} id="CentralLimb" onHover={hover} onSelect={select} selected={false} to={lerpPoint(p.centralStart, p.centralEnd, stagedLineProgress(visual.marking, 0, 3))} />
+            <PlanLine color="#c94f4f" decorative dashed from={p.centralEnd} id="UpperLateralLimb" onHover={hover} onSelect={select} selected={false} to={lerpPoint(p.centralEnd, p.upperEndpoint, stagedLineProgress(visual.marking, 1, 3))} />
+            <PlanLine color="#c94f4f" decorative dashed from={p.centralStart} id="LowerLateralLimb" onHover={hover} onSelect={select} selected={false} to={lerpPoint(p.centralStart, p.lowerEndpoint, stagedLineProgress(visual.marking, 2, 3))} />
           </g>
         )}
+
+        {visual.incision > 0 && (
+          <g aria-label="Incision geometry" data-animation-layer="incisions">
+            <g opacity={1 - visual.transposition}>
+              <PlanLine color="#8e2f3d" from={p.centralStart} id="CentralLimb" onHover={hover} onSelect={select} selected={selectedId === 'CentralLimb'} to={lerpPoint(p.centralStart, p.centralEnd, stagedLineProgress(visual.incision, 0, 3))} />
+            </g>
+            <PlanLine color="#c94f4f" from={p.centralEnd} id="UpperLateralLimb" onHover={hover} onSelect={select} selected={selectedId === 'UpperLateralLimb'} to={lerpPoint(p.centralEnd, p.upperEndpoint, stagedLineProgress(visual.incision, 1, 3))} />
+            <PlanLine color="#c94f4f" from={p.centralStart} id="LowerLateralLimb" onHover={hover} onSelect={select} selected={selectedId === 'LowerLateralLimb'} to={lerpPoint(p.centralStart, p.lowerEndpoint, stagedLineProgress(visual.incision, 2, 3))} />
+          </g>
+        )}
+
+        {overlays.finalAxis && visual.approximation > 0 && (
+          <PlanLine color="#167d78" decorative from={p.upperEndpoint} id="FinalAxis" onHover={hover} onSelect={select} selected={false} to={lerpPoint(p.upperEndpoint, p.lowerEndpoint, visual.approximation)} variant="final" />
+        )}
+
         {phase === 'transposition' && overlays.exchangeGuides && (
-          <>
+          <g aria-label="Reciprocal tip correspondence" data-animation-layer="correspondence" opacity={0.35 + 0.65 * (1 - Math.abs(visual.transposition * 2 - 1))}>
             <line className="movement-arrow" markerEnd="url(#arrowhead)" x1={p.centralStart.x} x2={p.upperEndpoint.x} y1={p.centralStart.y} y2={p.upperEndpoint.y} />
             <line className="movement-arrow" markerEnd="url(#arrowhead)" x1={p.centralEnd.x} x2={p.lowerEndpoint.x} y1={p.centralEnd.y} y2={p.lowerEndpoint.y} />
-          </>
+            <text className="correspondence-label" x={midpoint(p.centralStart, p.upperEndpoint).x} y={midpoint(p.centralStart, p.upperEndpoint).y - 4}>A meets C</text>
+            <text className="correspondence-label" x={midpoint(p.centralEnd, p.lowerEndpoint).x} y={midpoint(p.centralEnd, p.lowerEndpoint).y - 4}>B meets D</text>
+          </g>
+        )}
+
+        {visual.closure > 0 && (
+          <g aria-label="Final closure topology B C D A" data-animation-layer="closure" opacity={visual.closure}>
+            <PlanLine color="#365d58" decorative from={p.centralEnd} id="UpperLateralLimb" onHover={hover} onSelect={select} selected={false} to={lerpPoint(p.centralEnd, p.upperEndpoint, visual.closure)} variant="closure" />
+            <PlanLine color="#365d58" decorative from={p.upperEndpoint} id="FinalAxis" onHover={hover} onSelect={select} selected={false} to={lerpPoint(p.upperEndpoint, p.lowerEndpoint, visual.closure)} variant="closure" />
+            <PlanLine color="#365d58" decorative from={p.lowerEndpoint} id="LowerLateralLimb" onHover={hover} onSelect={select} selected={false} to={lerpPoint(p.lowerEndpoint, p.centralStart, visual.closure)} variant="closure" />
+          </g>
+        )}
+
+        {visual.comparison > 0 && (
+          <g aria-label="Original and theoretical final axis comparison" data-animation-layer="comparison" opacity={visual.comparison}>
+            <line className="comparison-original" x1={p.centralStart.x} x2={p.centralEnd.x} y1={p.centralStart.y} y2={p.centralEnd.y} />
+            <line className="comparison-final" x1={p.upperEndpoint.x} x2={p.lowerEndpoint.x} y1={p.upperEndpoint.y} y2={p.lowerEndpoint.y} />
+            <text className="comparison-label original" x={midpoint(p.centralStart, p.centralEnd).x + 4} y={midpoint(p.centralStart, p.centralEnd).y - 5}>entered A–B</text>
+            <text className="comparison-label final" x={midpoint(p.upperEndpoint, p.lowerEndpoint).x + 4} y={midpoint(p.upperEndpoint, p.lowerEndpoint).y + 7}>theoretical C–D</text>
+          </g>
         )}
 
         {showDesign && (
-          <>
+          <g data-animation-layer="handles" opacity={visual.marking}>
             <Handle id="centralStart" label="A" onKeyDown={moveWithKeyboard} onPointerDown={beginDragging} onSelect={select} point={p.centralStart} />
             <Handle id="centralEnd" label="B" onKeyDown={moveWithKeyboard} onPointerDown={beginDragging} onSelect={select} point={p.centralEnd} />
             <Handle id="upperEndpoint" label="C" onKeyDown={moveWithKeyboard} onPointerDown={beginDragging} onSelect={select} point={p.upperEndpoint} />
             <Handle id="lowerEndpoint" label="D" onKeyDown={moveWithKeyboard} onPointerDown={beginDragging} onSelect={select} point={p.lowerEndpoint} />
             <Handle id="center" label="MOVE" onKeyDown={moveWithKeyboard} onPointerDown={beginDragging} onSelect={select} point={{ x: params.centerX, y: params.centerY }} subtle />
-          </>
+          </g>
         )}
 
-        {showDesign && validMeasurements && overlays.centralLength && <MeasureLabel at={midpoint(p.centralStart, p.centralEnd)} text={formatLength(geometry.originalAxisLength, unit)} />}
-        {showDesign && validMeasurements && overlays.limbLengths && <MeasureLabel at={midpoint(p.centralEnd, p.upperEndpoint)} text={formatLength(params.upperLimbLength, unit)} />}
-        {showDesign && validMeasurements && overlays.limbLengths && <MeasureLabel at={midpoint(p.centralStart, p.lowerEndpoint)} text={formatLength(params.lowerLimbLength, unit)} />}
-        {showDesign && validMeasurements && overlays.angles && <MeasureLabel at={upperAngleLabel} text={`${geometry.upperAngleDeg.toFixed(0)}°`} />}
-        {showDesign && validMeasurements && overlays.angles && <MeasureLabel at={lowerAngleLabel} text={`${geometry.lowerAngleDeg.toFixed(0)}°`} />}
-        {showDesign && validMeasurements && overlays.gain && (
-          <MeasureLabel
-            at={{ x: viewBox.x + viewBox.width - 42, y: viewBox.y + 18 }}
-            emphasis
-            text={`${geometry.theoreticalLengthChangePercent >= 0 ? '+' : ''}${geometry.theoreticalLengthChangePercent.toFixed(1)}% length`}
-          />
+        {showDesign && validMeasurements && (
+          <g data-animation-layer="measurements" opacity={measurementOpacity}>
+            {overlays.centralLength && <MeasureLabel at={midpoint(p.centralStart, p.centralEnd)} text={formatLength(geometry.originalAxisLength, unit)} />}
+            {overlays.limbLengths && <MeasureLabel at={midpoint(p.centralEnd, p.upperEndpoint)} text={formatLength(params.upperLimbLength, unit)} />}
+            {overlays.limbLengths && <MeasureLabel at={midpoint(p.centralStart, p.lowerEndpoint)} text={formatLength(params.lowerLimbLength, unit)} />}
+            {overlays.angles && <MeasureLabel at={upperAngleLabel} text={`${geometry.upperAngleDeg.toFixed(0)}°`} />}
+            {overlays.angles && <MeasureLabel at={lowerAngleLabel} text={`${geometry.lowerAngleDeg.toFixed(0)}°`} />}
+            {overlays.gain && (
+              <MeasureLabel
+                at={{ x: viewBox.x + viewBox.width - 42, y: viewBox.y + 18 }}
+                emphasis
+                text={`${geometry.theoreticalLengthChangePercent >= 0 ? '+' : ''}${geometry.theoreticalLengthChangePercent.toFixed(1)}% length`}
+              />
+            )}
+          </g>
         )}
 
         {!geometry.isValid && (
@@ -196,48 +234,52 @@ export function SimulationOverlay({ geometry }: { geometry: ZPlastyGeometryResul
   )
 }
 
-function FlapPolygon({ id, points, color, selected, onHover, onSelect }: { id: SelectableId; points: Point2D[]; color: string; selected: boolean; onHover: (id: SelectableId | null) => void; onSelect: (id: SelectableId | null) => void }) {
+function FlapPolygon({ id, points, color, selected, interactive = true, onHover, onSelect }: { id: SelectableId; points: Point2D[]; color: string; selected: boolean; interactive?: boolean; onHover: (id: SelectableId | null) => void; onSelect: (id: SelectableId | null) => void }) {
   return (
     <polygon
-      aria-label={`Select ${id.replace(/([A-Z])/g, ' $1').trim()}`}
+      aria-hidden={!interactive || undefined}
+      aria-label={interactive ? `Select ${id.replace(/([A-Z])/g, ' $1').trim()}` : undefined}
       className="flap"
       data-selectable-id={id}
       fill={selected ? '#f8d77a' : color}
-      onClick={() => onSelect(id)}
+      onClick={interactive ? () => onSelect(id) : undefined}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
+        if (interactive && (event.key === 'Enter' || event.key === ' ')) {
           event.preventDefault()
           onSelect(id)
         }
       }}
-      onPointerLeave={() => onHover(null)}
-      onPointerMove={() => onHover(id)}
+      onPointerLeave={interactive ? () => onHover(null) : undefined}
+      onPointerMove={interactive ? () => onHover(id) : undefined}
       points={points.map((point) => `${point.x},${point.y}`).join(' ')}
-      role="button"
-      tabIndex={0}
+      pointerEvents={interactive ? undefined : 'none'}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
     />
   )
 }
 
-function PlanLine({ id, from, to, color, selected, onHover, onSelect }: { id: SelectableId; from: Point2D; to: Point2D; color: string; selected: boolean; onHover: (id: SelectableId | null) => void; onSelect: (id: SelectableId | null) => void }) {
+function PlanLine({ id, from, to, color, selected, onHover, onSelect, dashed, decorative, variant }: { id: SelectableId; from: Point2D; to: Point2D; color: string; selected: boolean; dashed?: boolean; decorative?: boolean; variant?: 'final' | 'closure'; onHover: (id: SelectableId | null) => void; onSelect: (id: SelectableId | null) => void }) {
   return (
     <line
-      aria-label={`Select ${id.replace(/([A-Z])/g, ' $1').trim()}`}
-      className="plan-line"
+      aria-hidden={decorative || undefined}
+      aria-label={decorative ? undefined : `Select ${id.replace(/([A-Z])/g, ' $1').trim()}`}
+      className={`plan-line${dashed ? ' marking-line' : ''}${variant ? ` ${variant}-line` : ''}`}
       data-selectable-id={id}
-      onClick={() => onSelect(id)}
+      onClick={decorative ? undefined : () => onSelect(id)}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
+        if (!decorative && (event.key === 'Enter' || event.key === ' ')) {
           event.preventDefault()
           onSelect(id)
         }
       }}
-      onPointerLeave={() => onHover(null)}
-      onPointerMove={() => onHover(id)}
-      role="button"
+      onPointerLeave={decorative ? undefined : () => onHover(null)}
+      onPointerMove={decorative ? undefined : () => onHover(id)}
+      pointerEvents={decorative ? 'none' : undefined}
+      role={decorative ? undefined : 'button'}
       stroke={selected ? '#f8d77a' : color}
       strokeWidth={selected ? 4.5 : 3}
-      tabIndex={0}
+      tabIndex={decorative ? undefined : 0}
       x1={from.x}
       x2={to.x}
       y1={from.y}

@@ -43,4 +43,28 @@ describe('SimulationOverlay', () => {
     expect(screen.getByRole('button', { name: 'Select Central Limb' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Move point C' })).not.toBeInTheDocument()
   })
+
+  it('shows explicit reciprocal-tip labels during transposition', () => {
+    useSimulationStore.getState().setPhase('transposition')
+    useSimulationStore.getState().setPhaseProgress(0.5)
+    const geometry = computeZPlastyGeometry(useSimulationStore.getState().params)
+    render(<SimulationOverlay geometry={geometry} />)
+    expect(screen.getByText('A meets C')).toBeInTheDocument()
+    expect(screen.getByText('B meets D')).toBeInTheDocument()
+  })
+
+  it('separates closure topology from the final comparison overlay', () => {
+    useSimulationStore.getState().setPhase('closure')
+    useSimulationStore.getState().setPhaseProgress(0.5)
+    const geometry = computeZPlastyGeometry(useSimulationStore.getState().params)
+    const { rerender } = render(<SimulationOverlay geometry={geometry} />)
+    expect(screen.getByLabelText('Final closure topology B C D A')).toBeInTheDocument()
+    expect(screen.queryByText('entered A–B')).not.toBeInTheDocument()
+
+    useSimulationStore.getState().setPhase('comparison')
+    useSimulationStore.getState().setPhaseProgress(0.5)
+    rerender(<SimulationOverlay geometry={geometry} />)
+    expect(screen.getByText('entered A–B')).toBeInTheDocument()
+    expect(screen.getByText('theoretical C–D')).toBeInTheDocument()
+  })
 })
