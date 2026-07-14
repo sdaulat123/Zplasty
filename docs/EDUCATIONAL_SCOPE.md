@@ -1,13 +1,17 @@
-# Educational Scope
+# Educational and Clinical-Use Boundary
 
-This simulator demonstrates idealized Z-plasty geometry for education.
+Z-Plasty Atlas is an interactive education and two-dimensional geometry tool. It accepts an abstract Z construction and reports transparent Euclidean measurements. It is not clinically validated and does not recommend whether, where, or how to perform a procedure.
 
-Actual tissue movement differs because of elasticity, thickness, vascularity, scar characteristics, surrounding anatomy, operative technique, healing, and other factors.
+The application does not evaluate:
 
-Displayed tension and strain values are relative educational proxies. They are not validated stress values, finite-element results, tissue-failure predictions, or clinical outcome predictions.
+- flap perfusion, viability, or vascular anatomy;
+- tissue thickness, quality, elasticity, mobility, or availability;
+- wound stress, strain, tension, closure force, or closure feasibility;
+- infection, prior radiation, scar biology, healing, or comorbidities;
+- three-dimensional contour effects, anatomic hazards, procedural suitability, or institutional protocols.
 
-The application is not validated for patient-specific planning.
+The optional 3D surface and color field are illustrative. They are not finite-element analysis or patient-specific models. The transposition sequence is a schematic cross-fade between the entered and ideal final point topology, not simulated tissue motion.
 
-The application does not replace formal surgical education, supervised training, or clinical judgment.
+Geometry and configuration processing occur in the browser. The app provides no fields for patient names, medical-record numbers, dates of birth, images, or other identifiers. Users should not enter identifiers. JSON and print exports intentionally contain geometry only. Literature links open external sites only when selected and never include entered geometry in their URLs.
 
-No realistic patient photographs are used. All visuals are stylized and generic.
+Any patient-care or intraoperative study would require, at minimum, reconstructive-surgery review, independent formula verification, formal software verification and validation, clinical human-factors and accessibility testing, privacy and cybersecurity assessment, institutional governance, and regulatory analysis for the intended jurisdiction and claims.

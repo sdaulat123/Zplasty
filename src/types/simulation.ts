@@ -20,16 +20,7 @@ export type AnimationState = {
 
 export type SurfaceMode = 'flat' | 'curved' | 'cylindrical' | 'joint'
 
-export type CameraMode = 'perspective' | 'orthographic' | 'top' | 'oblique' | 'side' | 'split'
-
-export type ViewMode =
-  | 'geometry'
-  | 'surgical'
-  | 'deformation'
-  | 'tension'
-  | 'comparison'
-  | 'variant'
-  | 'crossSection'
+export type CameraMode = 'perspective' | 'top' | 'oblique' | 'side'
 
 export type OverlayKey =
   | 'centralLength'
@@ -38,14 +29,8 @@ export type OverlayKey =
   | 'originalAxis'
   | 'finalAxis'
   | 'gain'
-  | 'flapDisplacement'
-  | 'closureVectors'
-  | 'tensionVectors'
+  | 'exchangeGuides'
   | 'grid'
-  | 'surfaceNormal'
-  | 'edgeCorrespondence'
-  | 'sutures'
-  | 'orientation'
   | 'heatmap'
 
 export type AccessibilityState = {

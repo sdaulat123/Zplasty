@@ -1,35 +1,27 @@
 import { Line } from '@react-three/drei'
 import type { ZPlastyGeometryResult } from '../../types/geometry'
 import { useSimulationStore } from '../../store/simulationStore'
+import { conceptualSurfaceHeight, type SurfaceLayout } from '../../geometry/surfaceMath'
 
-export function TensionOverlay({ geometryResult }: { geometryResult: ZPlastyGeometryResult }) {
-  const overlays = useSimulationStore((state) => state.overlays)
-  const animation = useSimulationStore((state) => state.animation)
+// Retained as a small scene overlay component for compatibility with the 3D viewer.
+// It shows point correspondence only; it does not calculate tension or closure force.
+export function TensionOverlay({ geometryResult, layout }: { geometryResult: ZPlastyGeometryResult; layout: SurfaceLayout }) {
+  const showGuides = useSimulationStore((state) => state.overlays.exchangeGuides)
+  const phase = useSimulationStore((state) => state.animation.phase)
+  const params = useSimulationStore((state) => state.params)
+  const surfaceMode = useSimulationStore((state) => state.surfaceMode)
   const p = geometryResult.points
+  const scenePoint = (point: { x: number; y: number }): [number, number, number] => [
+    point.x,
+    point.y,
+    conceptualSurfaceHeight(point, surfaceMode, params.surfaceCurvature, layout) + 12,
+  ]
 
-  if (!overlays.closureVectors && !overlays.tensionVectors && !overlays.edgeCorrespondence) return null
-  const showClosure = ['approximation', 'closure', 'comparison'].includes(animation.phase)
-
+  if (!showGuides || phase !== 'transposition') return null
   return (
-    <group position={[0, 0, 9]}>
-      {overlays.edgeCorrespondence && (
-        <>
-          <Line color="#7464c8" dashed lineWidth={2} points={[[p.upperEndpoint.x, p.upperEndpoint.y, 0], [p.lowerDestination.x, p.lowerDestination.y, 0]]} />
-          <Line color="#d28b30" dashed lineWidth={2} points={[[p.lowerEndpoint.x, p.lowerEndpoint.y, 0], [p.upperDestination.x, p.upperDestination.y, 0]]} />
-        </>
-      )}
-      {showClosure && overlays.closureVectors && (
-        <>
-          <Line color="#258a84" lineWidth={3} points={[[p.upperDestination.x, p.upperDestination.y, 0], [p.centralStart.x, p.centralStart.y, 0]]} />
-          <Line color="#258a84" lineWidth={3} points={[[p.lowerDestination.x, p.lowerDestination.y, 0], [p.centralEnd.x, p.centralEnd.y, 0]]} />
-        </>
-      )}
-      {showClosure && overlays.sutures && Array.from({ length: 7 }).map((_, index) => (
-        <mesh key={index} position={[p.centralStart.x + ((p.centralEnd.x - p.centralStart.x) * index) / 6, p.centralStart.y + ((p.centralEnd.y - p.centralStart.y) * index) / 6, 0]}>
-          <torusGeometry args={[2, 0.35, 8, 18]} />
-          <meshStandardMaterial color="#5a3d2c" roughness={0.7} />
-        </mesh>
-      ))}
+    <group>
+      <Line color="#7464c8" dashed lineWidth={2} points={[scenePoint(p.centralStart), scenePoint(p.upperEndpoint)]} />
+      <Line color="#d28b30" dashed lineWidth={2} points={[scenePoint(p.centralEnd), scenePoint(p.lowerEndpoint)]} />
     </group>
   )
 }
