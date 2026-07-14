@@ -17,6 +17,24 @@ npm run build
 
 The Vite development server prints the local URL. No remote service is required by the application at runtime; the optional 3D module is bundled and loaded only when its disclosure is opened.
 
+## Deploy to Vercel
+
+The repository includes `vercel.json`, so Vercel can deploy it without custom dashboard settings:
+
+1. Import `sdaulat123/Zplasty` into Vercel.
+2. Leave the detected framework as **Vite** and the project root as the repository root.
+3. Deploy. The application does not require environment variables or external services.
+
+Vercel installs the locked dependencies with `npm ci`, runs `npm run build`, and serves `dist`. A fallback rewrite keeps direct browser requests working if client-side routes are added later. Pull requests receive preview deployments when the GitHub repository is connected; deployments from the production branch become production deployments.
+
+To reproduce the hosted build locally:
+
+```bash
+npm ci
+npm run build
+npm run preview
+```
+
 ## What is implemented
 
 - **Learn:** keeps the two lateral limbs and angles symmetric, allows an independent central limb, and compares exact 30°/45°/60°/75°/90° planar references.
