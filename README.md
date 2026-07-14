@@ -27,6 +27,8 @@ The repository includes `vercel.json`, so Vercel can deploy it without custom da
 
 Vercel installs the locked dependencies with `npm ci`, runs `npm run build`, and serves `dist`. A fallback rewrite keeps direct browser requests working if client-side routes are added later. Pull requests receive preview deployments when the GitHub repository is connected; deployments from the production branch become production deployments.
 
+The deployment runtime is pinned to Node.js 24 to match the Vercel project and prevent an unreviewed major-version upgrade.
+
 To reproduce the hosted build locally:
 
 ```bash
